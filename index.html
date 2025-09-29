@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIH Demo — CCTV & URL VAPT Simulator</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --bg:#071017; --panel:#0f1a23; --accent:#00d47a; --accent-hover:#00ffa0; 
+  --muted:#9aa7b0; --high:#ff6b6b; --med:#ffb86b; --low:#7ef0b5; 
+  --light-bg:#f2f2f2; --light-panel:#fff; --light-text:#111; 
+}
+body{background:var(--bg);color:#e6eef2;font-family:'Inter',Arial,sans-serif;margin:0;padding:0;transition:background 0.3s,color 0.3s;}
+header{background:linear-gradient(90deg,#062126,#0b2730);padding:16px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.05);}
+header h1{color:var(--accent);margin:0;font-size:1.6rem;letter-spacing:1px;}
+.small-muted{color:var(--muted);font-size:0.9rem;}
+.container-main{max-width:1100px;margin:18px auto;padding:0 10px;}
+.card-panel{background: linear-gradient(180deg,var(--panel), #07151a);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:14px;margin-bottom:16px;transition: all 0.3s ease;}
+.card-panel:hover{box-shadow:0 0 15px rgba(0,255,120,0.3);}
+.btn-accent{background: var(--accent);color:#062224;border:0;transition: all 0.3s ease;}
+.btn-accent:hover{background: var(--accent-hover);color:#fff;box-shadow:0 0 8px var(--accent-hover);}
+.btn-outline-light:hover{color: var(--accent);border-color: var(--accent);box-shadow:0 0 6px var(--accent);}
+.hidden{display:none;}
+input,select{transition: all 0.2s ease;}
+input:focus,select:focus{box-shadow:0 0 5px var(--accent);border-color:var(--accent);outline:none;}
+.badge-summary{display:inline-block;padding:6px 12px;border-radius:8px;font-weight:600;margin-right:6px;transition:all 0.3s ease;cursor:pointer;}
+.badge-summary:hover{transform:scale(1.1);box-shadow:0 0 10px rgba(0,255,120,0.5);}
+.badge-high{background: var(--high); color:#fff;}
+.badge-med{background: var(--med); color:#111;}
+.badge-low{background: var(--low); color:#062224;}
+table thead th{background: #071e26;color: var(--accent);}
+table tbody tr:hover{background: rgba(0,255,120,0.1);cursor:pointer;}
+#loading{display:none;position: fixed;top:50%;left:50%;transform: translate(-50%, -50%);background: rgba(0,0,0,0.85);color: var(--accent);padding:16px 28px;font-weight:600;border-radius:10px;z-index:9999;box-shadow:0 0 12px var(--accent);}
+@media(max-width:768px){.controls-row{flex-direction: column;gap:10px;}input,select{width:100% !important;}.nav-choose .btn{width:100%;margin-bottom:8px;}table{display:block;overflow-x:auto;}}
+</style>
+</head>
+<body>
+
+<header>
+<h1>SIH Demo — CCTV & URL VAPT Simulator</h1>
+<div class="small-muted">Offline, educational demo. Fully interactive & mobile-friendly.</div>
+<button class="btn btn-outline-light mt-2" onclick="toggleMode()">Toggle Dark/Light Mode</button>
+</header>
+
+<div class="container-main">
+<div id="loading">Scanning...</div>
+
+<!-- Choose Module -->
+<section id="choose" class="card-panel">
+<h3>Choose Module</h3>
+<div class="small-muted mb-2">Pick a demo to start.</div>
+<div class="nav-choose d-flex flex-wrap gap-2">
+  <button class="btn btn-accent" onclick="showModule('cctv')">CCTV VAPT Demo</button>
+  <button class="btn btn-accent" onclick="showModule('url')">URL Attack Demo</button>
+  <button class="btn btn-outline-light" onclick="openEthics()">Ethics & Responsible Use</button>
+</div>
+</section>
+
+<!-- CCTV Module -->
+<section id="cctv" class="card-panel hidden">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h3>📷 CCTV & DVR VAPT (Simulated)</h3>
+<div class="small-muted">Module: 25233 — Simulated</div>
+</div>
+<div class="card-panel mb-3">
+<div class="controls-row d-flex">
+<input id="cctvInput" type="text" placeholder="Enter CCTV IP or URL">
+<select id="cctvScenario"><option value="">Scenario</option><option>Default Credentials</option><option>Open RTSP</option><option>Outdated Firmware</option><option>Weak TLS</option></select>
+<button class="btn btn-accent" onclick="cctvRunScan()">Start Scan</button>
+<button class="btn btn-light" onclick="cctvPrefill()">Prefill Demo</button>
+<button class="btn btn-outline-light" onclick="showChoose()">Back</button>
+<button class="btn btn-outline-light" onclick="exportCSV('cctv')">Export CSV</button>
+<input type="file" id="importCCTV" accept=".csv" onchange="importCSV('cctv',this)">
+</div>
+<div class="small-muted mt-2">Tip: Use sample IPs like <code>10.0.0.5</code> or import CSV.</div>
+</div>
+
+<div class="card-panel mb-3" id="cctvSummary">
+<h5>Summary</h5>
+<span class="badge-summary badge-high">High: 0</span>
+<span class="badge-summary badge-med">Medium: 0</span>
+<span class="badge-summary badge-low">Low: 0</span>
+<span class="badge-summary" style="background:#00aaff;color:#fff;">Total: 0</span>
+</div>
+
+<div class="card-panel">
+<h5>Scan Results</h5>
+<table class="table table-dark table-sm" id="cctvTable">
+<thead><tr><th>#</th><th>IP/URL</th><th>Vendor</th><th>Model</th><th>Firmware</th><th>Vulnerability</th><th>Risk</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="row mt-3">
+<div class="col-md-6 card-panel"><h6>Risk Distribution</h6><canvas id="cctvRiskChart"></canvas></div>
+<div class="col-md-6 card-panel"><h6>Vendor Vulnerabilities</h6><canvas id="cctvVendorChart"></canvas></div>
+</div>
+</section>
+
+<!-- URL Module -->
+<section id="url" class="card-panel hidden">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h3>🔗 URL Attack Detection (Simulated)</h3>
+<div class="small-muted">Module: 25229 — Simulated</div>
+</div>
+<div class="card-panel mb-3">
+<div class="controls-row d-flex">
+<input id="urlInput" type="text" placeholder="Enter URL or path">
+<select id="urlScenario"><option value="">Scenario</option><option>SQLi</option><option>XSS</option><option>Directory Traversal</option><option>SSRF</option></select>
+<button class="btn btn-accent" onclick="urlRunScan()">Scan URL</button>
+<button class="btn btn-light" onclick="urlPrefill()">Prefill Demo</button>
+<button class="btn btn-outline-light" onclick="showChoose()">Back</button>
+<button class="btn btn-outline-light" onclick="exportCSV('url')">Export CSV</button>
+<input type="file" id="importURL" accept=".csv" onchange="importCSV('url',this)">
+</div>
+<div class="small-muted mt-2">Tip: Paste multiple URLs via CSV for batch scan.</div>
+</div>
+
+<div class="card-panel mb-3" id="urlSummary">
+<h5>Summary</h5>
+<span class="badge-summary badge-high">High: 0</span>
+<span class="badge-summary badge-med">Medium: 0</span>
+<span class="badge-summary badge-low">Low: 0</span>
+<span class="badge-summary" style="background:#00aaff;color:#fff;">Total: 0</span>
+</div>
+
+<div class="card-panel">
+<h5>Scan Results</h5>
+<table class="table table-dark table-sm" id="urlTable">
+<thead><tr><th>#</th><th>URL</th><th>Vulnerability</th><th>Risk</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="row mt-3">
+<div class="col-md-6 card-panel"><h6>Risk Distribution</h6><canvas id="urlRiskChart"></canvas></div>
+<div class="col-md-6 card-panel"><h6>Attack Types</h6><canvas id="urlTypeChart"></canvas></div>
+</div>
+</section>
+
+<script>
+// ====================== Mode Toggle ======================
+let darkMode = true;
+function toggleMode(){
+  darkMode = !darkMode;
+  if(darkMode){
+    document.documentElement.style.setProperty('--bg','#071017');
+    document.documentElement.style.setProperty('--panel','#0f1a23');
+    document.documentElement.style.setProperty('--accent','#00d47a');
+    document.documentElement.style.setProperty('--accent-hover','#00ffa0');
+    document.body.style.color="#e6eef2";
+  } else {
+    document.documentElement.style.setProperty('--bg','#f2f2f2');
+    document.documentElement.style.setProperty('--panel','#fff');
+    document.documentElement.style.setProperty('--accent','#007bff');
+    document.documentElement.style.setProperty('--accent-hover','#00aaff');
+    document.body.style.color="#111";
+  }
+}
+
+// ====================== Show/Hide Modules ======================
+function showModule(name){document.querySelector('#cctv').classList.add('hidden');document.querySelector('#url').classList.add('hidden');document.querySelector('#choose').classList.add('hidden');document.querySelector('#'+name).classList.remove('hidden');}
+function showChoose(){document.querySelector('#cctv').classList.add('hidden');document.querySelector('#url').classList.add('hidden');document.querySelector('#choose').classList.remove('hidden');}
+
+// ====================== Loading ======================
+function showLoading(sec=1.5){const l=document.getElementById('loading');l.style.display='block';return new Promise(res=>setTimeout(()=>{l.style.display='none';res();},sec*1000));}
+
+// ====================== Data ======================
+let cctvData=[],urlData=[];
+
+// ====================== CCTV Module ======================
+function cctvPrefill(){document.getElementById('cctvInput').value='10.0.0.5,10.0.0.7,192.168.1.12';}
+async function cctvRunScan(){
+  const input=document.getElementById('cctvInput').value;if(!input)return alert('Enter IPs/URLs');const ips=input.split(',').map(i=>i.trim()).filter(Boolean);await showLoading(1.2);
+  ips.forEach(ip=>{
+    const riskLevels=['High','Medium','Low'];const vendors=['Hikvision','Dahua','Lorex','Generic'];const models=['X100','Z20','ProCam','Alpha'];const firmware=['v1.0','v2.3','v4.5','v1.9'];const risk=riskLevels[Math.floor(Math.random()*riskLevels.length)];const vendor=vendors[Math.floor(Math.random()*vendors.length)];const model=models[Math.floor(Math.random()*models.length)];const fw=firmware[Math.floor(Math.random()*firmware.length)];cctvData.push({ip,risk,vendor,model,fw});
+  });
+  updateCCTVTable();updateCCTVCharts();saveHistory('cctv');
+}
+function updateCCTVTable(){
+  const tbody=document.querySelector('#cctvTable tbody');tbody.innerHTML='';
+  cctvData.forEach((d,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${d.ip}</td><td>${d.vendor}</td><td>${d.model}</td><td>${d.fw}</td><td>${d.risk}</td><td>${d.risk}</td>`;tbody.appendChild(tr);});
+  const high=cctvData.filter(d=>d.risk=='High').length,med=cctvData.filter(d=>d.risk=='Medium').length,low=cctvData.filter(d=>d.risk=='Low').length,total=cctvData.length;
+  const sumDiv=document.getElementById('cctvSummary');sumDiv.innerHTML=`<h5>Summary</h5><span class="badge-summary badge-high">High: ${high}</span><span class="badge-summary badge-med">Medium: ${med}</span><span class="badge-summary badge-low">Low: ${low}</span><span class="badge-summary" style="background:#00aaff;color:#fff;">Total: ${total}</span>`;
+}
+let cctvRiskChart,cctvVendorChart;
+function updateCCTVCharts(){
+  const ctx1=document.getElementById('cctvRiskChart').getContext('2d');const ctx2=document.getElementById('cctvVendorChart').getContext('2d');
+  const riskCounts={High:0,Medium:0,Low:0};const vendorCounts={};
+  cctvData.forEach(d=>{riskCounts[d.risk]++;vendorCounts[d.vendor]=(vendorCounts[d.vendor]||0)+1;});
+  if(cctvRiskChart)cctvRiskChart.destroy();cctvRiskChart=new Chart(ctx1,{type:'doughnut',data:{labels:['High','Medium','Low'],datasets:[{data:[riskCounts.High,riskCounts.Medium,riskCounts.Low],backgroundColor:['#ff6b6b','#ffb86b','#7ef0b5']}] }});
+  if(cctvVendorChart)cctvVendorChart.destroy();cctvVendorChart=new Chart(ctx2,{type:'bar',data:{labels:Object.keys(vendorCounts),datasets:[{label:'Vulnerable Devices',data:Object.values(vendorCounts),backgroundColor:'#00d47a'}]},options:{scales:{y:{beginAtZero:true}}}});
+}
+
+// ====================== URL Module ======================
+function urlPrefill(){document.getElementById('urlInput').value='https://example.com,https://testsite.org';}
+async function urlRunScan(){
+  const input=document.getElementById('urlInput').value;if(!input)return alert('Enter URLs');const urls=input.split(',').map(i=>i.trim()).filter(Boolean);await showLoading(1.2);
+  urls.forEach(url=>{const risks=['High','Medium','Low'];const vulns=['SQLi','XSS','SSRF','Dir Traversal'];const risk=risks[Math.floor(Math.random()*risks.length)];const vuln=vulns[Math.floor(Math.random()*vulns.length)];urlData.push({url,vuln,risk});});
+  updateURLTable();updateURLCharts();saveHistory('url');
+}
+let urlRiskChart,urlTypeChart;
+function updateURLTable(){
+  const tbody=document.querySelector('#urlTable tbody');tbody.innerHTML='';
+  urlData.forEach((d,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${d.url}</td><td>${d.vuln}</td><td>${d.risk}</td>`;tbody.appendChild(tr);});
+  const high=urlData.filter(d=>d.risk=='High').length,med=urlData.filter(d=>d.risk=='Medium').length,low=urlData.filter(d=>d.risk=='Low').length,total=urlData.length;
+  const sumDiv=document.getElementById('urlSummary');sumDiv.innerHTML=`<h5>Summary</h5><span class="badge-summary badge-high">High: ${high}</span><span class="badge-summary badge-med">Medium: ${med}</span><span class="badge-summary badge-low">Low: ${low}</span><span class="badge-summary" style="background:#00aaff;color:#fff;">Total: ${total}</span>`;
+}
+function updateURLCharts(){
+  const ctx1=document.getElementById('urlRiskChart').getContext('2d');const ctx2=document.getElementById('urlTypeChart').getContext('2d');
+  const riskCounts={High:0,Medium:0,Low:0};const vulnCounts={};
+  urlData.forEach(d=>{riskCounts[d.risk]++;vulnCounts[d.vuln]=(vulnCounts[d.vuln]||0)+1;});
+  if(urlRiskChart)urlRiskChart.destroy();urlRiskChart=new Chart(ctx1,{type:'doughnut',data:{labels:['High','Medium','Low'],datasets:[{data:[riskCounts.High,riskCounts.Medium,riskCounts.Low],backgroundColor:['#ff6b6b','#ffb86b','#7ef0b5']}] }});
+  if(urlTypeChart)urlTypeChart.destroy();urlTypeChart=new Chart(ctx2,{type:'bar',data:{labels:Object.keys(vulnCounts),datasets:[{label:'Occurrences',data:Object.values(vulnCounts),backgroundColor:'#00d47a'}]},options:{scales:{y:{beginAtZero:true}}}});
+}
+
+// ====================== Ethics ======================
+function openEthics(){alert('⚠️ Always use this simulator ethically.\nDo NOT scan real devices without authorization!');}
+
+// ====================== Export / Import CSV ======================
+function exportCSV(type){
+  let data=[],filename='';
+  if(type==='cctv'){data=cctvData;filename='cctv_scan.csv';}
+  else if(type==='url'){data=urlData;filename='url_scan.csv';}
+  if(data.length==0)return alert('No data to export!');
+  const csvRows=[Object.keys(data[0]).join(',')];
+  data.forEach(d=>{csvRows.push(Object.values(d).join(','));});
+  const csvString=csvRows.join('\n');
+  const blob=new Blob([csvString],{type:'text/csv'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
+}
+function importCSV(type,input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split('\n').map(l=>l.trim()).filter(Boolean);
+    const headers=lines.shift().split(',');
+    const imported=lines.map(l=>{const vals=l.split(',');let obj={};headers.forEach((h,i)=>obj[h]=vals[i]);return obj;});
+    if(type==='cctv'){cctvData=[...cctvData,...imported];updateCCTVTable();updateCCTVCharts();saveHistory('cctv');}
+    else if(type==='url'){urlData=[...urlData,...imported];updateURLTable();updateURLCharts();saveHistory('url');}
+  }
+  reader.readAsText(file);
+}
+
+// ====================== LocalStorage History ======================
+function saveHistory(type){if(type==='cctv')localStorage.setItem('cctvData',JSON.stringify(cctvData));else if(type==='url')localStorage.setItem('urlData',JSON.stringify(urlData));}
+function loadHistory(){const cd=localStorage.getItem('cctvData');if(cd)cctvData=JSON.parse(cd);const ud=localStorage.getItem('urlData');if(ud)urlData=JSON.parse(ud);updateCCTVTable();updateCCTVCharts();updateURLTable();updateURLCharts();}
+window.onload=()=>{loadHistory();showChoose();}
+</script>
+
+</body>
+</html>
